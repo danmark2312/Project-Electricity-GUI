@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>734</width>
+    <height>525</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item alignment="Qt::AlignHCenter">
+     <widget class="QLabel" name="header">
+      <property name="text">
+       <string>Welcome to the Analysis of household electricity consumption program </string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="Line" name="line">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="tabPosition">
+       <enum>QTabWidget::North</enum>
+      </property>
+      <property name="tabShape">
+       <enum>QTabWidget::Rounded</enum>
+      </property>
+      <property name="currentIndex">
+       <number>1</number>
+      </property>
+      <property name="documentMode">
+       <bool>true</bool>
+      </property>
+      <property name="movable">
+       <bool>true</bool>
+      </property>
+      <property name="tabBarAutoHide">
+       <bool>true</bool>
+      </property>
+      <widget class="QWidget" name="tab_1">
+       <attribute name="title">
+        <string>Load data</string>
+       </attribute>
+       <attribute name="toolTip">
+        <string>Select this tab to load data</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <widget class="QGroupBox" name="error_box">
+          <property name="statusTip">
+           <string/>
+          </property>
+          <property name="title">
+           <string>Errorhandling</string>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_3">
+           <item>
+            <widget class="QComboBox" name="error_dropmenu">
+             <property name="toolTip">
+              <string>Click to select errorhandling mode</string>
+             </property>
+             <property name="statusTip">
+              <string>Click to select errorhandling mode</string>
+             </property>
+             <property name="layoutDirection">
+              <enum>Qt::LeftToRight</enum>
+             </property>
+             <item>
+              <property name="text">
+               <string>Forward fill (replace corrupt measurement with latest valid measurement)</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Backward fill (replace corrupt measurement with next valid measurement)</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Drop (delete corrupted measurements)</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="loadfile_box">
+          <property name="title">
+           <string>Filename</string>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout">
+           <item>
+            <widget class="QLineEdit" name="loadfile_input">
+             <property name="toolTip">
+              <string>Please enter a filename</string>
+             </property>
+             <property name="statusTip">
+              <string>Please enter a filename in this box</string>
+             </property>
+             <property name="placeholderText">
+              <string>Please enter the name of the datafile. Ex: 2008.csv</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="loadfile_btn">
+             <property name="toolTip">
+              <string>Click to load data</string>
+             </property>
+             <property name="statusTip">
+              <string>Click to load data from filename</string>
+             </property>
+             <property name="text">
+              <string>Load data</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="drop_box">
+          <property name="title">
+           <string>Drag and Drop</string>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_2">
+           <item>
+            <widget class="QPlainTextEdit" name="drop_input">
+             <property name="acceptDrops">
+              <bool>true</bool>
+             </property>
+             <property name="toolTip">
+              <string>Drag a file into this box to load it</string>
+             </property>
+             <property name="statusTip">
+              <string>Drag a file into this box to load it</string>
+             </property>
+             <property name="textInteractionFlags">
+              <set>Qt::NoTextInteraction</set>
+             </property>
+             <property name="placeholderText">
+              <string>Please drag a datafile into this box</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tab_2">
+       <attribute name="title">
+        <string>Analysis</string>
+       </attribute>
+       <attribute name="toolTip">
+        <string>Select this tab to analyze data</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_3">
+        <item>
+         <widget class="QGroupBox" name="aggcurrent_box">
+          <property name="title">
+           <string>Current Aggregation</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_4">
+           <item>
+            <widget class="QLineEdit" name="aggcurrent_line">
+             <property name="toolTip">
+              <string>This is the current aggregation</string>
+             </property>
+             <property name="statusTip">
+              <string>This box shows how the data is currently aggregated</string>
+             </property>
+             <property name="inputMask">
+              <string/>
+             </property>
+             <property name="text">
+              <string>Minutely aggregation</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="dragEnabled">
+              <bool>false</bool>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+             <property name="clearButtonEnabled">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="agg_box">
+          <property name="statusTip">
+           <string>Click to aggregate for daily consumption</string>
+          </property>
+          <property name="title">
+           <string>Aggregate data</string>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_4">
+           <item>
+            <widget class="QPushButton" name="agg_min_btn">
+             <property name="toolTip">
+              <string>Click to aggregate</string>
+             </property>
+             <property name="statusTip">
+              <string>Click to aggregate for minutely consumption</string>
+             </property>
+             <property name="text">
+              <string>Minute (no aggregation)</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="agg_hour_btn">
+             <property name="toolTip">
+              <string>Click to aggregate</string>
+             </property>
+             <property name="statusTip">
+              <string>Click to aggregate for hourly consumption</string>
+             </property>
+             <property name="text">
+              <string>Hourly</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="agg_day_btn">
+             <property name="toolTip">
+              <string>Click to aggregate</string>
+             </property>
+             <property name="text">
+              <string>Daily</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="agg_month_btn">
+             <property name="toolTip">
+              <string>Click to aggregate</string>
+             </property>
+             <property name="statusTip">
+              <string>Click to aggregate for monthly consumption</string>
+             </property>
+             <property name="text">
+              <string>Monthly</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="agg_hDay_btn">
+             <property name="toolTip">
+              <string>Click to aggregate</string>
+             </property>
+             <property name="statusTip">
+              <string>Click to aggregate for the hourly average</string>
+             </property>
+             <property name="text">
+              <string>Hour-of-day (hourly average)</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="Line" name="line_2">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="cmd_box">
+          <property name="title">
+           <string>Commands</string>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_6">
+           <item>
+            <widget class="QPushButton" name="stat_btn">
+             <property name="toolTip">
+              <string>Click to display statistics</string>
+             </property>
+             <property name="statusTip">
+              <string>Click to display statistics based on currently aggregated data</string>
+             </property>
+             <property name="text">
+              <string>Display statistics</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="plot_btn">
+             <property name="toolTip">
+              <string>Click to visualize data</string>
+             </property>
+             <property name="statusTip">
+              <string>Click to visualize data in plots</string>
+             </property>
+             <property name="text">
+              <string>Visualize data</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="display_box">
+          <property name="title">
+           <string>Display window</string>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_5">
+           <item>
+            <widget class="QPlainTextEdit" name="display_window">
+             <property name="toolTip">
+              <string>This window will display any messages given</string>
+             </property>
+             <property name="statusTip">
+              <string>This window will display any messages given</string>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+             <property name="textInteractionFlags">
+              <set>Qt::NoTextInteraction</set>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>734</width>
+     <height>21</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <tabstops>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>error_dropmenu</tabstop>
+  <tabstop>loadfile_input</tabstop>
+  <tabstop>loadfile_btn</tabstop>
+  <tabstop>drop_input</tabstop>
+  <tabstop>aggcurrent_line</tabstop>
+  <tabstop>agg_min_btn</tabstop>
+  <tabstop>agg_hour_btn</tabstop>
+  <tabstop>agg_day_btn</tabstop>
+  <tabstop>agg_month_btn</tabstop>
+  <tabstop>agg_hDay_btn</tabstop>
+  <tabstop>stat_btn</tabstop>
+  <tabstop>plot_btn</tabstop>
+  <tabstop>display_window</tabstop>
+ </tabstops>
+ <resources/>
+ <connections/>
+</ui>
