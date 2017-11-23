@@ -22,7 +22,7 @@ import os
 additional_mods = ['numpy.core._methods', 'numpy.lib.format',
                    'matplotlib.backends.backend_qt5agg']
 
-include_files = ["functions"]
+include_files = ["functions","resources"]
 
 packages = ["numpy","matplotlib.pyplot","csv","PyQt5.QtCore", "PyQt5.QtGui", "PyQt5.QtWidgets","pandas"]
 
