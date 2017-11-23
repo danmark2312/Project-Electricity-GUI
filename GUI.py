@@ -1,28 +1,28 @@
 """
-TO DO:
-- Fix plots, we got one more fig than needed
-- Find efficient way to plot for minutes...
-- Add show data button
-- Check for all statistics and plots
-- Display messsages when
-    - Changing plot zones
-    - Aggregating data
-    - Showing data
-- Show data button, should be easy.
+This script runs a GUI where the user can load data by drag and drop or
+by direct filename, and analyze the data, including plotting.
+
+@Author: Simon Moe Sørensen (s174420)
 """
 
-from PyQt5 import QtCore, QtGui, QtWidgets
 #Import plots and make them look pretty
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.style.use('ggplot')
+
+#Importing libraries
 import pandas as pd
 import numpy as np
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+#Importing functions and exceptions
 from functions.dataLoad import load_measurements, FileExtensionError
 from functions.dataAggregation import aggregate_measurements
 from functions.statistics import print_statistics
 
 #Creating a class to enable drag and drop
+#Extend class with QPlainTextEdit so the drag and drop will be
+#to a QPlainTextEdit widget.
 class DragAndDrop(QtWidgets.QPlainTextEdit):
     """A class that sets a QPlainTextEdit widget to be able to recieve drops
     while at the same time disabling user interactions when needed
@@ -36,16 +36,16 @@ class DragAndDrop(QtWidgets.QPlainTextEdit):
 
     #On entering event, check if valid file, then set write to true
     def dragEnterEvent(self, e):
-        if e.mimeData().hasUrls():
-            e.accept()
-            self.setReadOnly(False)
+        if e.mimeData().hasUrls(): #Check for url
+            e.accept() #Accept file
+            self.setReadOnly(False) #Enable read
         else:
-            e.ignore()
+            e.ignore() #Don't accept file
 
     #On drop event, get url and disable write
     def dropEvent(self, e):
         self.floc = e.mimeData().text() #Get file location and save as floc
-        self.setReadOnly(True)
+        self.setReadOnly(True) #Disable read
         self.fileDrop.emit() #Emit signal on dropEvent
 
 class App():
@@ -53,15 +53,15 @@ class App():
         #Initial variables
         self.unit = "Watt-hour"
         self.senderId = 1
-        self.period = "Minutely"
+        self.period = "minute"
 
         #Configure UI
         self.setupUi(MainWindow)
         self.tabWidget.setTabEnabled(1,False) #Set second tab as disabled
 
-        #Add functionality to program (buttons and such)
+        #Add functionality to program
         #Dataload
-        self.loadfile_input.returnPressed.connect(self.dataLoadFile)
+        self.loadfile_input.returnPressed.connect(self.dataLoad)
         self.loadfile_btn.clicked.connect(self.dataLoad)
         self.drop_input.fileDrop.connect(self.dataLoad)
         #Aggregate buttons
@@ -73,6 +73,22 @@ class App():
         #Command buttons
         self.stat_btn.clicked.connect(self.printStat)
         self.plot_btn.clicked.connect(self.dataPlot)
+        self.showdata_btn.clicked.connect(self.showData)
+        #Changing-events
+        self.plotsMenu.currentIndexChanged.connect(self.menuChange)
+
+#On change of menu dropdown
+    def menuChange(self):
+        self.print_("Changed plot data to {}".format(str(self.plotsMenu.currentText())))
+
+#Show data
+    def showData(self):
+        pd.set_option('display.max_rows',500)
+        if self.senderId != 5:
+            self.print_(str(self.tvec.join(self.data))+"\nData printed \nCurrent unit: {}".format(self.unit))
+        else:
+            self.data.index.name = 'Hour of the day'
+            self.print_(str(self.data))
 
 #Question box
     def showQuestion(self,windowName,message):
@@ -89,61 +105,59 @@ class App():
 
 #Plot data
     def dataPlot(self):
-        doPlot = True
         #Check for minutely aggregation
         if "Minutely" in self.aggcurrent_line.text():
-            choice = self.showQuestion('Warning!', "You are about to generate plots from an insanely large amount of data, do you want to proceed?")
-            if choice == 0:
-                doPlot = False
-            else:
-                self.showInfo("Don't say I diden't warn you...")
+            self.showInfo("You are about to generate plots from a large amount of data\nThis make take a few seconds")
 
-        if doPlot:
-            pltChoice = self.plotsMenu.currentText()
+        pltChoice = self.plotsMenu.currentText()
+        #Define the plotting data
+        if pltChoice == "All zones":
+            pltData = self.data.sum(axis=1)
+        elif pltChoice == "Each zone":
+            pltData = self.data
 
-            #Define the plotting data
-            if pltChoice == "All zones":
-                pltData = self.data.sum(axis=1)
-            elif pltChoice == "Each zone":
-                pltData = self.data
 
-            #Define x-axis and delete 0's
-            if not "Hour-of" in self.aggcurrent_line.text():
-                tvec_0 = self.tvec.iloc[:,0:(len(self.tvec.columns)-self.senderId)] #Get relevant collumns
-                xAxis = tvec_0.apply(lambda x: ' '.join(x.astype(str)), axis=1) #Convert to Series
-                xLabel = "Date"
-            else:
-                xAxis = tvec
-                xLabel = "Hour of the day"
-            #Check type and rename index depending on this
-            if isinstance(pltData,pd.DataFrame):
-                pltData = pltData.set_index([xAxis])
-            else:
-                pltData = pltData.rename(xAxis)
-            plt.close()
-            #Plot bars if length is less than 25
-            #Define plot parameters
-            plt.figure(figsize=(9,5))
-            plt.subplots_adjust(top=0.93,bottom=0.245,left=0.165,right=0.855,
-                                hspace=0.2,wspace=0.2) #adjust size
-            if len(pltData) < 25:
-                plot1 = pltData.plot(kind='bar')
-            else:
-                plot1 = pltData.plot()
+        #Define x-axis and delete 0's
+        if self.senderId != 5:
+            #Get tvec as string without 0's
+            tvec_0 = self.tvec.iloc[:,0:(len(self.tvec.columns)-self.senderId)].astype(str)
+            #set xAxis variable as years
+            xAxis = tvec_0.iloc[:,0]
+            #Add all the columns of tvec_0 into a series
+            for i in range(len(tvec_0.columns)-1):
+                xAxis = xAxis+" "+tvec_0.iloc[:,i+1]
+            xLabel = "Date" #Set label
+        else:
+            xAxis = self.tvec
+            xLabel = "Hour of the day"
 
-            #Add options to plot
-            plt.xlabel(xLabel) #Add x-label
-            plt.xticks(rotation=45)
-            plt.ylabel(self.unit) #Add y-label
-            plt.title("Consumption per {}".format(self.period))
+        #Check type and rename index depending on this
+        if isinstance(pltData,pd.DataFrame):
+            pltData = pltData.set_index([xAxis])
+        else:
+            pltData = pltData.rename(xAxis)
 
-            #Add pie-chart
-            plt.figure(figsize=(8,8))
-            plot2 = self.data.sum().rename("").plot(kind='pie',
-                            title="Distribution of electricity consumption",
-                            autopct='%.2f%%',fontsize=16) #Define pie chart
+        #Plot bars if length is less than 25
+        if len(pltData) < 25:
+            plot1 = pltData.plot(kind='bar')
+        else:
+            plot1 = pltData.plot()
 
-            plt.show() #Display
+        #Add options to plot
+        plt.xlabel(xLabel) #Add x-label
+        plt.xticks(rotation=45)
+        plt.ylabel(self.unit) #Add y-label
+        plt.title("Consumption per {}".format(self.period))
+        #Define plot parameters
+        plt.subplots_adjust(top=0.93,bottom=0.245,left=0.165,right=0.855,
+                            hspace=0.2,wspace=0.2) #adjust size
+        #Add pie-chart
+        plt.figure(figsize=(8,8))
+        plot2 = self.data.sum().rename("").plot(kind='pie',
+                        title="Distribution of electricity consumption",
+                        autopct='%.2f%%',fontsize=16) #Define pie chart
+        plt.show() #Display
+        self.print_("Printed plots") #Print
 
 #Print statistics by creating a table widget
     def printStat(self):
@@ -158,9 +172,8 @@ class App():
         #Set layout
         self.statistics.setHorizontalHeaderLabels(["Min","25","50%","75%","Max"])
         self.statistics.setVerticalHeaderLabels(["Zone 1","Zone 2","Zone 3","Zone 4","All"])
-        self.statistics.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
-        MainWindow.resize(875, 525)
-        self.print_("Current unit: {}".format(self.unit))
+        self.statistics.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents) #Design
+        self.print_("Statistics printed \nCurrent unit: {}".format(self.unit))
 
 #Print function
     def print_(self,text):
@@ -176,52 +189,40 @@ class App():
         #Aggregate data, but always agg from raw data
         self.tvec,self.data = aggregate_measurements(self.tvecOld,self.dataOld,self.period)
 
-        #Check if it is preferable to convert units
-        if (self.data > 10000).any().any():
+        #Check if it is preferable to convert units or keep them
+        if (self.data > 5000).any().any():
             self.data = self.data/1000
             self.unit = "Kilowatt-hour"
+        else:
+            self.unit = "Watt-hour"
 
-        #Change current aggregation
-        self.aggcurrent_line.setText("{} aggregation".format(sender.text()))
+        self.aggcurrent_line.setText("{} aggregation".format(sender.text())) #Change current aggregation
+        self.print_("Aggregated for the {}".format(periodStr[self.senderId-1])) #Print msg
 
     #data loading by drop
     def dataLoad(self):
         sender = MainWindow.sender()
         try:
             #Define filename dependent on sender
-            if sender == (self.loadfile_btn or self.loadfile_input):
-                filename = self.loadfile_input.text() #Get text from filename
-            else:
+            if sender == (self.drop_input):
                 filename = self.drop_input.floc #Get file location
+            else:
+                filename = self.loadfile_input.text() #Get text from filename
 
             fmode = str(self.error_dropmenu.currentText()) #Get fmode
             fmode = fmode[0:fmode.find("(")-1] #Only get first part of text
             self.tvec,self.data = load_measurements(filename,fmode) #Load data
             self.tvecOld,self.dataOld = self.tvec,self.data #Save data for later use
-            self.showInfo("File succesfully loaded, with the following errorhandling: \n{}!".format(fmode))
+            self.showInfo("File succesfully loaded, with the following errorhandling: \n{}".format(fmode))
             self.tabWidget.setTabEnabled(1,True) #Set second tab as enabled
+            MainWindow.resize(750, 555) #Set new window size
             self.tabWidget.setCurrentIndex(1) #Change to second tab
         except FileNotFoundError:
-            self.showCritical("Error! No such file exists, please try again")
+            self.showCritical("Error! No such file exists, please try again \nIs the file in the same directory as the .exe file? (Does not matter for drag and drop)")
         except FileExtensionError:
             self.showCritical("Error! Wrong file extension, please try again")
         except OSError:
             self.showCritical("Error! Can only load one file at a time, please try again")
-    #data loading by filename
-    def dataLoadFile(self):
-        try:
-            filename = self.loadfile_input.text() #Get text from filename
-            fmode = str(self.error_dropmenu.currentText()) #Get fmode
-            fmode = fmode[0:fmode.find("(")-1] #Only get first part of text
-            tvec,data = load_measurements(filename,fmode) #Load data
-            tvecOld,dataOld = tvec,data #Save data for later use
-            self.showInfo("File succesfully loaded! With the following errorhandling: \n{}".format(fmode))
-            self.tabWidget.setTabEnabled(1,True) #Set second tab as enabled
-            self.tabWidget.setCurrentIndex(1) #Change to second tab
-        except FileNotFoundError:
-            self.showCritical("Error! No such file exists, please try again")
-        except FileExtensionError:
-            self.showCritical("Error! Wrong file extension, please try again")
 
     def showCritical(self,text):
         msg = QtWidgets.QMessageBox()
@@ -253,6 +254,7 @@ class App():
     def setupUi(self, MainWindow):
         #Initial GUI and layout
         MainWindow.setObjectName("MainWindow")
+        MainWindow.setWindowIcon(QtGui.QIcon('resources/icon.ico'))
         MainWindow.resize(734, 525)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
@@ -499,6 +501,8 @@ class App():
         self.display_window.setToolTip(_translate("MainWindow", "This window will display any messages given"))
         self.display_window.setStatusTip(_translate("MainWindow", "This window will display any messages given"))
         self.display_window.setPlaceholderText(_translate("MainWindow", "No messages to display"))
+        self.plotsMenu.setToolTip(_translate("MainWindow", "This dropdown menu defines the data which is to be plotted"))
+        self.plotsMenu.setStatusTip(_translate("MainWindow", "This dropdown menu defines the data which is to be plotted"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Analysis"))
         self.tabWidget.setTabToolTip(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Select this tab to analyze data"))
 
