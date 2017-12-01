@@ -8,6 +8,7 @@ This file contains multiple functions that contribute to userinput
 """
 import numpy as np
 
+
 def inputStr(prompt):
     """
     Userinput that only allows strings
@@ -30,8 +31,10 @@ def inputStr(prompt):
             print("Not a valid string. Please try again")
     return str
 
+
 def displayMenu(options):
     """
+    Displays a list of options with indexes that the user can choose from
 
     INPUT:
         options: An array of strings
@@ -43,20 +46,21 @@ def displayMenu(options):
         menu = displayMenu(options)
     """
 
-    #Print menu
+    # Print menu
     for i in range(len(options)):
-        print("{}. {}".format(i+1,options[i]))
+        print("{}. {}".format(i + 1, options[i]))
 
-    #Initial variable
+    # Initial variable
     choice = 0
 
-    #Get menu choice
-    while not choice in np.arange(1,len(options)+1):
+    # Get menu choice
+    while choice not in np.arange(1, len(options) + 1):
         choice = inputNumber("Please choose a menu item: ")
         if choice > len(options) or choice <= 0:
             print("\nChoice out of menu range")
 
     return choice
+
 
 def inputNumber(prompt):
     """

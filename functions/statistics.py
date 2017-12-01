@@ -1,52 +1,42 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Oct 25 18:09:30 2017
+def print_statistics(tvec, data):
+    """
+    ATTENTION: this function inputs 'tvec', because it is a criteria. Even though
+        it is not actually being used...
 
-INPUT:
+    Displays some descriptive statistics and outputs them as a
+    table for the user to see
 
-    tvec: N x 6 matrix where each row is a time vector
-    data: N x 4 matrix where each row is a set of measurements
+    INPUT:
+        tvec: N x 6 matrix where each row is a time vector
+        data: N x 4 matrix where each row is a set of measurements
 
-OUTPUT:
+    OUTPUT:
+        stat: dataFrame containing descriptive statistics of data matrix
 
-    Screen output: a table of descriptive statistics
+    USAGE:
+        stat = print_statistics(tvec,data)
 
-                   min  25%   50%   75%    max
-        Zone
-        1
-        2
-        3
-        4
-        All
+    @Author: Simon Moe Sørensen, moe.simon@gmail.com
+    """
+    # Define the relevant statistics
+    dStats = ['min', '25%', '50%', '75%', 'max']
 
-USAGE:
-
-    print_statistics(tvec,data)
-
-
-@Author: Simon Moe Sørensen, moe.simon@gmail.com
-"""
-
-def print_statistics(tvec,data):
-
-    #Define the relevant statistics
-    dStats=['min','25%','50%','75%','max']
-
-    #Get descriptive statistics of data, zone-wise
+    # Get descriptive statistics of data, zone-wise
     statzone = data.describe().T[dStats].rename(
-            index={'zone1': 1, 'zone2': 2, 'zone3': 3, 'zone4': 4})
-        #The line above gets the statistics, transposes it, while only selecting
-        #the relevant statistics. Then it renames the zones to integers
+        index={'zone1': 1, 'zone2': 2, 'zone3': 3, 'zone4': 4})
+    # The line above computes the statistics, transposes it, while only selecting
+    # the relevant statistics. Then it renames the integers to zones
 
-    #Get descriptive statistics of all zones
+    # Get descriptive statistics of all zones
     statall = statzone.sum().describe().T[dStats].rename('All')
-        #The line above does practically the same, however it is a Series and
-        #has different renaming syntax
+    # The line above does practically the same, however it is a Series and
+    # has different renaming syntax than a dataFrame
 
-    #Add together
+    # Add together in a table
     stat = statzone.append(statall)
 
-    #Assign index name
+    # Assign index-column name
     stat.index.name = "Zone"
 
     return stat
