@@ -24,7 +24,7 @@ additional_mods = ['numpy.core._methods', 'numpy.lib.format',
 
 include_files = ["functions","resources"]
 
-packages = ["numpy","matplotlib.pyplot","csv","PyQt5.QtCore", "PyQt5.QtGui", "PyQt5.QtWidgets","pandas"]
+packages = ["numpy","matplotlib","csv","PyQt5.QtCore", "PyQt5.QtGui", "PyQt5.QtWidgets","pandas"]
 
 build_exe_options = {"packages": packages, "excludes": ["tkinter"],
                      "includes":additional_mods, "include_files":include_files}
