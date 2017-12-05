@@ -44,13 +44,13 @@ def load_measurements(filename, fmode):
     fmodeStr = ["forward fill", "backward fill", "drop"]
     fmode = fmode.lower()
 
-    # Check if csv file
-    if ".csv" not in filename:
-        raise FileExtensionError("Wrong file extension, please try again")
-
     # Load the datafile into DataFrame (variable name: df)
     df = pd.read_csv(filename, header=None,
                      names=["year", "month", "day", "hour", "minute", "second", "zone1", "zone2", "zone3", "zone4"])
+
+    # Check if csv file
+    if ".csv" not in filename:
+        raise FileExtensionError("Wrong file extension, please try again")
 
     # Replace -1 with NaN values
     df = df.replace(-1, np.NaN)
