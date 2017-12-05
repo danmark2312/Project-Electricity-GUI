@@ -7,8 +7,8 @@ It is adviced to open it in maximized mode for best compatibility
 @Author: Simon Moe Sørensen (s174420)
 
 TODO:
-    - Fix icon
-    - Faster plots
+    - Fix dropmode xAxis
+    - Fix monthly xAxis
 """
 # Importing libraries
 import pandas as pd
@@ -219,7 +219,7 @@ class App():
         plt.xlabel(xLabel)  # Add x-label
         plt.ylabel(self.unit)  # Add y-label
         # Define plot parameters
-        plt.subplots_adjust(top=0.93, bottom=0.255, left=0.165, right=0.855,
+        plt.subplots_adjust(top=0.9, bottom=0.255, left=0.1, right=0.955,
                             hspace=0.2, wspace=0.2)  # adjust size
         self.canvas.draw()  # Draw to canvas
 
@@ -494,7 +494,7 @@ class App():
         Displays a help pdf file
         """
         path = os.path.dirname(os.path.abspath(
-            __file__)) + "/resources/Readme.pdf"
+            __file__)) + "/resources/userguide.pdf"
         webbrowser.open_new(
             r'file:///' + path)
 
@@ -505,7 +505,7 @@ class App():
         """
         Initiates the GUI
         """
-        # Make sure to get icon in taskbar as well
+        # Make sure to get icon in taskbar as well (on windows only)
         if sys.platform == "win32":
             myappid = u'dankmemes'  # arbitrary string, using 'u' for unicode
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
@@ -755,19 +755,20 @@ class App():
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         options = self.menubar.addMenu("Options")
 
-        # Add help option
+        # Set parameters for helpAction
         helpAction = QtWidgets.QAction('Help', MainWindow)
-        helpAction.setShortcut("Ctrl+H")
         helpAction.setStatusTip("Help for App")
         helpAction.triggered.connect(self.help_app)
-        options.addAction(helpAction)
+        helpAction.setShortcut("F1")
+        options.addAction(helpAction)  # Add to menu
 
-        # Add exit option
+        # Mac OS has built-in quit menu (Cmd+Q)
+        # Set parameters for exitAction
         exitAction = QtWidgets.QAction('Exit', MainWindow)
-        exitAction.setShortcut("Ctrl+Q")
         exitAction.setStatusTip("Quit app")
         exitAction.triggered.connect(self.close_app)
-        options.addAction(exitAction)
+        exitAction.setShortcut("Ctrl+Q")
+        options.addAction(exitAction)  # Add to menu
 
         self.menubar.setGeometry(
             QtCore.QRect(0, 0, 734, 21))
