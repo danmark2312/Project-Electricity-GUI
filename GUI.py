@@ -12,7 +12,6 @@ TODO:
 """
 # Importing libraries
 import pandas as pd
-import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 # Importing functions and exceptions
@@ -24,6 +23,7 @@ from functions.print_statistics import print_statistics
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 matplotlib.style.use('ggplot')  # Set plotting layout
 
 
@@ -72,7 +72,6 @@ class App():
         self.unit = "Watt-hour"
         self.aggId = 1  # Identifies current aggregation
         self.period = "minute"
-        self.periodCheck = None
 
         # Configure UI
         self.setupUi(MainWindow)
@@ -129,12 +128,20 @@ class App():
         """
         Ask the user a question as a popup box
         """
-        msg = QtWidgets.QMessageBox()  # Create message box widget
-        choice = QtWidgets.QMessageBox.question(msg,
+        qBox = QtWidgets.QMessageBox()  # Create message box widget
+
+        # Center widget
+        geometry = qBox.frameGeometry()  # Geometry of qBox
+        cp = QtWidgets.QDesktopWidget().availableGeometry().center()  # Centerpoint
+        geometry.moveCenter(cp)  # Set qBox's frame to center point
+        qBox.move(geometry.topLeft())  # Move qBox to center point
+
+        # Display question
+        choice = QtWidgets.QMessageBox.question(qBox,
                                                 windowName, message,
-                                                msg.Yes | msg.No)  # Display question box
+                                                qBox.Yes | qBox.No)  # Display question box
         # Set choice as binary 1 or 0
-        if choice == msg.Yes:
+        if choice == qBox.Yes:
             choice = 1
         else:
             choice = 0
@@ -147,12 +154,12 @@ class App():
         """
         # Hide plots
         if self.plot_btn.text() == "Hide plots":
-            self.canvas.hide()  # Hide widget
+            self.plotFrame.hide()  # Hide widget
             self.plot_btn.setText("Show plots")  # Set btn text
             self.print_("Hiding plots")  # Display msg
         # Show plots
         else:
-            self.canvas.show()  # Show widget
+            self.plotFrame.show()  # Show widget
             self.plot_btn.setText("Hide plots")
             self.print_("Showing plots")
             self.dataPlot()
@@ -174,9 +181,9 @@ class App():
         # Warn user about large loading time
         if len(self.data) > 300000:
             choice = self.showQuestion("Attention! Large amount of data",
-                                       "You are about to generate plots from a large amount of data, which may take above 30 seconds\nAre you sure you want to continue?")
+                                       "You are about to generate plots from a large amount of data, which may take above 20 seconds\nAre you sure you want to continue?")
             if choice == 0:
-                self.plot_btn.click()  # Hide plots
+                self.plot_btn.click()  # Hide plots by simulating a click
                 self.figure.clear()  # Clear current plot
                 return
 
@@ -190,20 +197,17 @@ class App():
         pltChoice = self.plotsMenu.currentText()
         # Define the plotting data type
         if pltChoice == "All zones":
-            pltData = self.data.sum(axis=1)
+            pltData = self.data.sum(axis=1).copy()
         elif pltChoice == "Each zone":
-            pltData = self.data
+            pltData = self.data.copy()
 
         # ===========================
         # Defining data to plot
         # ===========================
-        # Define x-axis and create a series of strings containing the date
+        # Define x-axis
         if self.aggId != 5:
-            # Get tvec with columns without 0's
-            mask = self.tvec.columns[np.array(self.tvec.any())]
-            tvec_0 = self.tvec[mask]
             # Create a date-type series
-            xAxis = pd.to_datetime(tvec_0)
+            xAxis = pd.to_datetime(self.tvec)
             xLabel = "Date"  # Set label
         else:
             xAxis = self.tvec
@@ -213,7 +217,7 @@ class App():
         if isinstance(pltData, pd.DataFrame):
             pltData = pltData.set_index([xAxis])
         else:
-            pltData = pltData.rename(xAxis)
+            pltData.set_axis(0, xAxis)
 
         # ===========================
         # Plotting starts here
@@ -224,7 +228,7 @@ class App():
 
         # Plot either line or bar plot depending on length of data
         if len(pltData) < 25:
-            pltData.plot(kind='bar', ax=ax, rot=35,
+            pltData.plot(kind='bar', ax=ax, rot=20,
                          title="Consumption per {}".format(self.period))
         else:
             pltData.plot(ax=ax,
@@ -356,22 +360,23 @@ class App():
         try:
             # Define filename dependent on sender
             if sender == (self.drop_input):
-                filename = self.drop_input.floc  # Get file location from drop
+                filename = self.drop_input.floc  # Get file from drop
             else:
-                filename = self.loadfile_input.text()  # Get text from filename
+                filename = self.loadfile_input.text()  # Get file from text
 
             # Define fmode from current dropdown menu
             fmode = str(self.error_dropmenu.currentText())
 
             fmode = fmode[0:fmode.find("(") - 1]  # Only get relevant text
 
+            # Call load data function
             self.tvec, self.data, warning = load_measurements(
-                filename, fmode)  # Call load data function
+                filename, fmode)
 
             # Check if warning needs to be printed
             if type(warning) == str:
                 self.showWarning(warning)  # display warning
-                self.error_dropmenu.setCurrentIndex(2)  # set drop mode
+                self.error_dropmenu.setCurrentIndex(2)  # set to drop mode
 
             # Save data for later use
             self.tvecOld, self.dataOld = self.tvec, self.data
@@ -379,8 +384,14 @@ class App():
             # Send information to user
             self.showInfo(
                 "File succesfully loaded, with the following errorhandling: \n{}".format(fmode))
-            self.showInfo(
-                "It is recommended to run this program in fullscreen mode")
+
+            # Ask if user wants to open maximized
+            choice = self.showQuestion("Recommended view",
+                                       "It is recommended to run this program in maximized mode\n"
+                                       "Do you want to maximize the window?")
+            # If yes, open as maximized
+            if choice == 1:
+                MainWindow.showMaximized()
 
             # Set second tab as enabled
             self.tabWidget.setTabEnabled(1, True)
@@ -389,11 +400,16 @@ class App():
             self.aggcurrent_line.setText(
                 "Minutely aggregation")  # Set aggregation text
             self.display_window.setPlainText("")  # Clear display window
-            self.statistics.clear()  # Clear statistics
             self.tabWidget.setCurrentIndex(1)  # Change to second tab
+            self.periodCheck = None  # reset previous plots
 
-            # Open as maximized
-            MainWindow.showMaximized()
+            # Check for stat or plot windows and close them if open
+            if self.statistics.isVisible():
+                self.stat_btn.click()
+
+            if self.canvas.isVisible():
+                self.plot_btn.click()
+                self.figure.clear()  # Clear plots
 
         # Print message if any of given errors are raised
         except FileNotFoundError:
@@ -661,12 +677,18 @@ class App():
         # Plots window
         self.figure = plt.figure()  # a figure to plot on
         self.canvas = FigureCanvas(self.figure)  # canvas to display plots on
-        self.canvas.setMinimumSize(0, 200)
-        self.horizontalLayout_5.addWidget(self.canvas)  # add to layout
-        self.canvas.hide()  # hide to begin with
+        self.toolbar = NavigationToolbar(self.canvas, None)  # toolbar
+        self.canvas.setMinimumSize(200, 200)
+        self.plotFrame = QtWidgets.QFrame(self.display_box)  # Create frame
+        self.horizontalLayout_5.addWidget(self.plotFrame)  # Add to layout
+        self.verticalLayout_5 = QtWidgets.QVBoxLayout(
+            self.plotFrame)  # Create vLayout for plots
+        self.verticalLayout_5.addWidget(self.toolbar)  # Add toolbar to layout
+        self.verticalLayout_5.addWidget(self.canvas)  # Add canvas to layout
+        self.plotFrame.hide()  # hide to begin with
         # Statistics
         self.statistics = QtWidgets.QTableWidget(self.display_box)
-        self.statistics.setMinimumSize(425, 166677)
+        # self.statistics.setMinimumSize(425, 166677)
         self.statistics.setMaximumSize(450, 166677)
         self.statistics.hide()
         self.horizontalLayout_5.addWidget(self.statistics)
@@ -680,6 +702,7 @@ class App():
         self.display_window.setMaximumSize(450, 166677)
         self.horizontalLayout_5.addWidget(
             self.display_window)
+        # self.horizontalLayout_5.addStretch()
         self.verticalLayout_3.addWidget(self.display_box)
         # Finish tabs
         self.tabWidget.addTab(self.tab_2, "")
