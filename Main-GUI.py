@@ -5,10 +5,6 @@ by direct filename, and analyze the data, including plotting.
 It is adviced to read the Readme first or press F1 in the application
 
 @Author: Simon Moe Sørensen (s174420)
-
-TODO:
-    - Fix dropmode xAxis
-    - Fix monthly xAxis
 """
 # Importing libraries
 import pandas as pd
@@ -22,17 +18,17 @@ import sys
 from src.load_measurements import load_measurements, FileExtensionError
 from src.aggregate_measurements import aggregate_measurements
 from src.print_statistics import print_statistics
-from src.myWindow import myWindow
+from src.myFrame import myFrame
 from src.dragAndDrop import DragAndDrop
 
-# Import plots and make them look pretty
-import matplotlib.pyplot as plt
+# Import plot and make them look pretty
 import matplotlib
+matplotlib.use('Qt5Agg')
+import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 matplotlib.style.use('ggplot')  # Set plotting layout
-matplotlib.use('Qt5Agg')
 
 
 class App():
@@ -70,13 +66,14 @@ class App():
         self.stat_btn.clicked.connect(self.statToggle)
         self.plot_btn.clicked.connect(self.plotToggle)
         self.showdata_btn.clicked.connect(self.showData)
+        self.plot_focus_btn.clicked.connect(self.plotFocus)
         # Dropdown menus
-        self.plotsMenu.currentIndexChanged.connect(self.menuChange)
+        self.plotMenu.currentIndexChanged.connect(self.menuChange)
         # Plot on changetype events
         self.aggcurrent_line.textChanged.connect(self.dataPlot)
         self.aggcurrent_line.textChanged.connect(self.printStat)
-        self.plotsMenu.currentIndexChanged.connect(self.dataPlot)
-        MainWindow.resized.connect(self.plotResize)
+        self.plotMenu.currentIndexChanged.connect(self.dataPlot)
+        self.plotFrame.resized.connect(self.plotResize)
 
 # On change of dropdown menu
     def menuChange(self):
@@ -84,7 +81,7 @@ class App():
         Print any changes done to how the data is plotted
         """
         self.print_("Changed plot data to {}".format(
-            str(self.plotsMenu.currentText())))  # Print changes
+            str(self.plotMenu.currentText())))  # Print changes
 
 # Show data
     def showData(self):
@@ -100,41 +97,66 @@ class App():
             self.data.index.name = 'Hour of the day'
             self.print_(str(self.data))
 
-# Show/hide plots
+# Show/hide plot
     def plotToggle(self):
         """
-        Toggle plots button and window
+        Toggle plot button and window
         """
-        # Hide plots
-        if self.plot_btn.text() == "Hide plots":
+        # Hide plot
+        if self.plot_btn.text() == "Hide plot":
             self.plotFrame.hide()  # Hide widget
-            self.plot_btn.setText("Show plots")  # Set btn text
-            self.print_("Hiding plots")  # Display msg
-        # Show plots
+            self.plot_btn.setText("Show plot")  # Set btn text
+            self.print_("Hiding plot")  # Display msg
+        # Show plot
         else:
             self.plotFrame.show()
-            self.plot_btn.setText("Hide plots")
-            self.print_("Showing plots")
+            self.plot_btn.setText("Hide plot")
+            self.print_("Showing plot")
             self.dataPlot()
 
-# Adjust plots to resize
+# Focus plot
+    def plotFocus(self):
+        """
+        Closes all other boxes than plot and statistics to make plot more in
+        focus
+        """
+        # If user wants to focus plot
+        if self.plot_focus_btn.text() == "Focus plot":
+            self.infocurrent_box.hide()
+            self.agg_box.hide()
+            self.cmd_box.hide()
+            self.display_window.hide()
+            self.line_2.hide()
+            self.plot_focus_btn.setText("Unfocus plot")
+
+        else:
+            self.infocurrent_box.show()
+            self.agg_box.show()
+            self.cmd_box.show()
+            self.display_window.show()
+            self.line_2.show()
+            self.plot_focus_btn.setText("Focus plot")
+
+# Adjust plot to new size
     def plotResize(self):
         """
-        Resizes plots (if open) to current window size
+        Resizes plot (if open) to current window size
         """
-        if self.canvas.isVisible():
+        if self.canvas.isVisible() and (int(self.canvas.width()) > 400):
             plt.tight_layout()
 
 # Plot data
     def dataPlot(self):
         """
-        Plots data to FigureCanvas widget
-        Also warns user if large amount of data is present
+        Plots data to FigureCanvas widget if calling the function makes
+        the plot visible. Such as clicking "show plots" or changing plotting
+        type while plots have already been plotted.
+        If a large amount of data is present, ask if user wants to procede
         """
-        # Check if plotting type (each or all-types) have changed and window is
+        # Check if plotting type (each or all-types) has changed and window is
         # open. Then plot. If the window is closed or data has already been
         # plotted, then don't do plotting
-        if MainWindow.sender() == self.plotsMenu and self.canvas.isVisible():
+        if MainWindow.sender() == self.plotMenu and self.canvas.isVisible():
             pass
         elif self.period == self.periodCheck or not self.canvas.isVisible():
             return
@@ -143,18 +165,16 @@ class App():
         if len(self.data) > 300000:
             # Warn user about large plotting data that can make the program lag
             choice = self.showQuestion("Attention! Large amount of data",
-                                       "You are about to generate plots from a large amount of data which will make the program stutter on some computers\nAre you sure you want to continue?")
+                                       "You are about to generate plot from a large amount of data which will make the program slow on most computers\nAre you sure you want to continue?")
             if choice == 0:
-                self.plot_btn.click()  # Hide plots by simulating a click
+                self.plot_btn.click()  # Hide plot by simulating a click
                 return
 
-        self.print_("Data changed, generating new plots")  # Msg plot new data
+        self.print_("Data changed, generating new plot")  # Msg plot new data
+        self.figure.clf()  # Clear current plot
 
-        # Define variable to check if data has already been generated
-        self.periodCheck = self.period
-
-        # Get current plotting option from plotsMenu
-        pltChoice = self.plotsMenu.currentText()
+        # Get current plotting option from plotMenu
+        pltChoice = self.plotMenu.currentText()
 
         # Define the plotting data type
         if pltChoice == "All zones":
@@ -185,8 +205,6 @@ class App():
         # ===========================
         # Plotting starts here
         # ===========================
-        # Plot bars if length is less than 25
-        self.figure.clear()  # Clear plot
         ax = self.figure.add_subplot(1, 1, 1)  # Create axis to plot on
 
         # Plot either line or bar plot depending on length of data
@@ -194,7 +212,7 @@ class App():
             # Plot a bar graph. xAxis cannot be implemented in the same way
             # as a line graph, so worked around it by plotting through pandas
             # and assigning index in a separate command
-            pltData.plot(kind='bar', ax=ax, rot=0,
+            pltData.plot(kind='bar', ax=ax,
                          use_index=False)  # Pandas plot
             # Seperate xTicks for hour of the day and month
             if xLabel == "Date":  # Month
@@ -205,10 +223,10 @@ class App():
                            pltData.index.strftime("%H:00"))  # Assign index
         else:
             # Plot a line graph
-            plt.plot(pltData.index, pltData.values)
+            ax.plot(pltData.index, pltData.values)
 
-            # Define datetime locations and formatting. Using AutoDateXXXXX to make
-            # it adaptable to zooming
+            # Define datetime locations and formatting. Using AutoDateXXXXX to
+            # make it adaptable to zooming
             locator = mdates.AutoDateLocator()
             formatter = mdates.AutoDateFormatter(locator)
 
@@ -218,9 +236,8 @@ class App():
             formatter.scaled[30] = '%b\n%Y'  # Months
             formatter.scaled[1.0] = '%d. %b\n%Y'  # Days
             formatter.scaled[1. / 24.] = '%H:00\n%d. %b %y'  # Hours
-            formatter.scaled[1. / (60. * 24.)] = '%H:%M\n%d. %b %y'  # Minutes
-            formatter.scaled[1. / (60. * 60. * 24.)
-                             ] = '%H:%M:%S\n%d. %b %y'  # Sec
+            formatter.scaled[1. / (60. * 24.)] = '%H:%M\n%d. %b'  # Minutes
+            formatter.scaled[1. / (60 * 60 * 24)] = '%H:%M:%S\n%d. %b'  # Sec
 
             # Assign the locator and formatter to the xAxis
             ax.xaxis.set_minor_locator(locator)
@@ -228,15 +245,21 @@ class App():
 
         self.figure.autofmt_xdate()  # Set proper rotations for xAxis
         # Add additional options to plot (self explanatory)
-        plt.legend(legends, loc=0)
+        ax.legend(legends, loc=0)
         ax.grid(True)
-        plt.title("Electricity consumption per {}".format(self.period))
-        plt.xlabel(xLabel)
-        plt.ylabel(self.unit)
+        ax.set_title("Electricity consumption per {}".format(self.period))
+        ax.set_xlabel(xLabel)
+        ax.set_ylabel(self.unit)
 
-        # Set subplot size
-        plt.tight_layout()
+        # Set subplot size if plot is displayable. If it is below
+        # 500 px width, then it is impossible to see anything anyways
+        if int(self.canvas.width()) > 400:
+            plt.tight_layout()
+
         self.canvas.draw()  # Draw to canvas
+
+        # Define variable to check if data has already been generated
+        self.periodCheck = self.period
 
 # Show/hide stats
     def statToggle(self):
@@ -349,8 +372,9 @@ class App():
         """
         Load data from the filename specified in the loadfile_input QLineEdit
         or from the location of the dropped file into the drop_input box
+        If user's screen is small, then open in fullscreen and warn user
 
-        Also reset the second tab and all relating data, in case the user
+        Also resets the second tab and all relating data, in case the user
         loads data a second time
 
         Uses load_measurements function to aggregate the data
@@ -400,15 +424,25 @@ class App():
                 "Minutely aggregation | Unit: Watt-hour")  # Set aggregation text
             self.display_window.setPlainText("")  # Clear display window
             self.tabWidget.setCurrentIndex(1)  # Change to second tab
-            self.periodCheck = None  # reset previous plots
+            self.periodCheck = None  # reset previous plot
 
-            # Check for stat or plot windows and close them if open
+            # Check if any windows are open in display_box and close them
             if self.statistics.isVisible():
                 self.stat_btn.click()
 
             if self.canvas.isVisible():
                 self.plot_btn.click()
-                self.figure.clear()  # Clear plots
+                self.figure.clf()
+
+            if self.plot_focus_btn.text() == "Unfocus plot":
+                self.plot_focus_btn.click()
+
+            screen_res = QtWidgets.QDesktopWidget().availableGeometry()
+
+            if int(screen_res.width()) < 1300 or int(screen_res.height()) < 700:
+                self.showWarning(
+                    "You have a very small screen!\nProgram might crash when plotting. \nUsing fullscreen mode to minimize chances of a crash")
+                MainWindow.showFullScreen()
 
         # Print message if any of given errors are raised
         except FileNotFoundError:
@@ -526,7 +560,7 @@ class App():
             MainWindow.showFullScreen()
 
     # The UI has been mainly generated by QtDesigner. However widgets such as:
-    # plots, menubars and the dropdown menu for plotting data have been added
+    # plot, menubars and the dropdown menu for plotting data have been added
     # manually
     def setupUi(self, MainWindow):
         """
@@ -553,17 +587,6 @@ class App():
         self.verticalLayout = QtWidgets.QVBoxLayout(
             self.centralwidget)
         self.verticalLayout.setObjectName("verticalLayout")
-        # Header of program
-        self.header = QtWidgets.QLabel(self.centralwidget)
-        self.header.setObjectName("header")
-        self.verticalLayout.addWidget(
-            self.header, 0, QtCore.Qt.AlignHCenter)
-        # Separating line
-        self.line = QtWidgets.QFrame(self.centralwidget)
-        self.line.setFrameShape(QtWidgets.QFrame.HLine)
-        self.line.setFrameShadow(QtWidgets.QFrame.Sunken)
-        self.line.setObjectName("line")
-        self.verticalLayout.addWidget(self.line)
         # Tab widget
         self.tabWidget = QtWidgets.QTabWidget(
             self.centralwidget)
@@ -707,13 +730,13 @@ class App():
         self.gridLayout = QtWidgets.QGridLayout(
             self.cmd_box)
         self.gridLayout.setObjectName("gridLayout")
-        # Drop down menu for plots
-        self.plotsMenu = QtWidgets.QComboBox(self.cmd_box)
-        self.plotsMenu.setObjectName("plotsMenu")
-        self.plotsMenu.addItem("")
-        self.plotsMenu.addItem("")
+        # Drop down menu for plot
+        self.plotMenu = QtWidgets.QComboBox(self.cmd_box)
+        self.plotMenu.setObjectName("plotMenu")
+        self.plotMenu.addItem("")
+        self.plotMenu.addItem("")
         self.gridLayout.addWidget(
-            self.plotsMenu, 0, 0, 1, 1)
+            self.plotMenu, 0, 0, 1, 1)
         # Statistics button
         self.stat_btn = QtWidgets.QPushButton(self.cmd_box)
         self.stat_btn.setObjectName("stat_btn")
@@ -743,18 +766,28 @@ class App():
             self.display_box)
         self.horizontalLayout_5.setObjectName(
             "horizontalLayout_5")
-        # Plots window
+
+        # Plot window
+        self.plotFrame = myFrame(self.display_box)  # Create frame
+        self.verticalLayout_5 = QtWidgets.QVBoxLayout(
+            self.plotFrame)  # Create vLayout for plot
+
+        # Add focus button
+        self.plot_focus_btn = QtWidgets.QPushButton(self.plotFrame)
+        self.plot_focus_btn.setObjectName("plot_focus_btn")
+        self.verticalLayout_5.addWidget(self.plot_focus_btn)
+
+        # Add plotting canvas
         self.figure = plt.figure()  # a figure to plot on
-        self.canvas = FigureCanvas(self.figure)  # canvas to display plots on
+        self.canvas = FigureCanvas(self.figure)  # canvas to display plot on
         self.toolbar = NavigationToolbar(self.canvas, None)  # toolbar
         self.canvas.setMinimumSize(300, 200)
-        self.plotFrame = QtWidgets.QFrame(self.display_box)  # Create frame
         self.horizontalLayout_5.addWidget(self.plotFrame)  # Add to layout
-        self.verticalLayout_5 = QtWidgets.QVBoxLayout(
-            self.plotFrame)  # Create vLayout for plots
         self.verticalLayout_5.addWidget(self.toolbar)  # Add toolbar to layout
         self.verticalLayout_5.addWidget(self.canvas)  # Add canvas to layout
-        self.plotFrame.hide()  # hide to begin with
+        # Hide plot to begin with
+        self.plotFrame.hide()
+
         # Statistics
         self.statistics = QtWidgets.QTableWidget(self.display_box)
         # self.statistics.setMinimumSize(425, 166677)
@@ -784,14 +817,14 @@ class App():
         options = self.menubar.addMenu("Options")
 
         # Set parameters for helpAction
-        helpAction = QtWidgets.QAction('Help', MainWindow)
+        helpAction = QtWidgets.QAction('Show help', MainWindow)
         helpAction.setStatusTip("Help for App")
         helpAction.triggered.connect(self.help_app)
         helpAction.setShortcut("F1")
         options.addAction(helpAction)  # Add to menu
 
         # Set parameter for fsAction (full screen action)
-        fsAction = QtWidgets.QAction('Fullscreen', MainWindow)
+        fsAction = QtWidgets.QAction('Toggle fullscreen', MainWindow)
         fsAction.setStatusTip("Toggle fullscreen")
         fsAction.triggered.connect(self.fs_app)
         fsAction.setShortcut("F11")
@@ -822,7 +855,7 @@ class App():
         MainWindow.setStatusBar(self.statusbar)
 
         # Retranslate the UI
-        self.retranslateUi(MainWindow)
+        self.naming(MainWindow)
         # Set tab order
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
         MainWindow.setTabOrder(self.tabWidget, self.error_dropmenu)
@@ -835,8 +868,8 @@ class App():
         MainWindow.setTabOrder(self.agg_hour_btn, self.agg_day_btn)
         MainWindow.setTabOrder(self.agg_day_btn, self.agg_month_btn)
         MainWindow.setTabOrder(self.agg_month_btn, self.agg_hDay_btn)
-        MainWindow.setTabOrder(self.agg_hDay_btn, self.plotsMenu)
-        MainWindow.setTabOrder(self.plotsMenu, self.plot_btn)
+        MainWindow.setTabOrder(self.agg_hDay_btn, self.plotMenu)
+        MainWindow.setTabOrder(self.plotMenu, self.plot_btn)
         MainWindow.setTabOrder(self.plot_btn, self.stat_btn)
         MainWindow.setTabOrder(self.stat_btn, self.showdata_btn)
         MainWindow.setTabOrder(self.showdata_btn, self.display_window)
@@ -851,144 +884,108 @@ class App():
         mixer.init()  # Initialize
         music = ["Allstar", "Big Shaq", "Darude", "Hell Naw", "HEYAYA",
                  "Jimmy Neutron", "PPAP", "Seinfeld Theme", "Tunnel Vision",
-                 "We Are Number One"]
+                 "We Are Number One", "To Be Continued"]
         if mixer.music.get_busy():  # If playing, then stop
             mixer.music.stop()
+            self.statusbar.showMessage("Stopped music")
         else:  # Else load some dank music, randomly o.O
+            song = random.choice(music)
             mixer.music.load(
-                'resources/dank/{}.mp3'.format(random.choice(music)))
+                'resources/dank/{}.mp3'.format(song))
             mixer.music.play()
+            self.statusbar.showMessage("Now playing: {}".format(song))
 
-    def retranslateUi(self, MainWindow):
-        _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate(
-            "MainWindow", "Analysis of Household Electricity Consumption"))
-        self.header.setText(_translate(
-            "MainWindow", "Welcome to the Analysis of Household Electricity Consumption Program "))
-        self.error_box.setTitle(_translate(
-            "MainWindow", "Errorhandling"))
-        self.error_dropmenu.setToolTip(_translate(
-            "MainWindow", "Click to select errorhandling mode"))
-        self.error_dropmenu.setStatusTip(_translate(
-            "MainWindow", "Click to select errorhandling mode"))
-        self.error_dropmenu.setItemText(0, _translate(
-            "MainWindow", "Forward fill (replace corrupt measurement with latest valid measurement)"))
-        self.error_dropmenu.setItemText(1, _translate(
-            "MainWindow", "Backward fill (replace corrupt measurement with next valid measurement)"))
-        self.error_dropmenu.setItemText(2, _translate(
-            "MainWindow", "Drop (delete corrupted measurements)"))
-        self.loadfile_box.setTitle(
-            _translate("MainWindow", "Filename"))
-        self.loadfile_input.setToolTip(_translate(
-            "MainWindow", "Please enter a filename"))
-        self.loadfile_input.setStatusTip(_translate(
-            "MainWindow", "Please enter a filename in this box"))
-        self.loadfile_input.setPlaceholderText(_translate(
-            "MainWindow", "Please enter the name of the datafile. Ex: 2008.csv"))
-        self.loadfile_btn.setToolTip(_translate(
-            "MainWindow", "Click to load data"))
-        self.loadfile_btn.setStatusTip(_translate(
-            "MainWindow", "Click to load data from filename"))
-        self.loadfile_btn.setText(
-            _translate("MainWindow", "Load data"))
-        self.drop_box.setTitle(_translate(
-            "MainWindow", "Drag and Drop"))
-        self.drop_input.setToolTip(_translate(
-            "MainWindow", "Drag a file into this box to load it"))
-        self.drop_input.setStatusTip(_translate(
-            "MainWindow", "Drag a file into this box to load it"))
-        self.drop_input.setPlaceholderText(_translate(
-            "MainWindow", "Please drag a datafile into this box"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_1),
-                                  _translate("MainWindow", "Load data"))
+    def naming(self, MainWindow):
+        MainWindow.setWindowTitle(
+            "Analysis of Household Electricity Consumption")
+        self.error_box.setTitle("Errorhandling")
+        self.error_dropmenu.setToolTip("Click to select errorhandling mode")
+        self.error_dropmenu.setStatusTip("Click to select errorhandling mode")
+        self.error_dropmenu.setItemText(
+            0, "Forward fill (replace corrupt measurement with latest valid measurement)")
+        self.error_dropmenu.setItemText(
+            1, "Backward fill (replace corrupt measurement with next valid measurement)")
+        self.error_dropmenu.setItemText(
+            2, "Drop (delete corrupted measurements)")
+        self.loadfile_box.setTitle("Filename")
+        self.loadfile_input.setToolTip("Please enter a filename")
+        self.loadfile_input.setStatusTip("Please enter a filename in this box")
+        self.loadfile_input.setPlaceholderText(
+            "Please enter the name of the datafile. Ex: 2008.csv")
+        self.loadfile_btn.setToolTip("Click to load data")
+        self.loadfile_btn.setStatusTip("Click to load data from filename")
+        self.loadfile_btn.setText("Load data")
+        self.drop_box.setTitle("Drag and Drop")
+        self.drop_input.setToolTip("Drag a file into this box to load it")
+        self.drop_input.setStatusTip("Drag a file into this box to load it")
+        self.drop_input.setPlaceholderText(
+            "Please drag a datafile into this box")
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.tab_1), "Load data")
         self.tabWidget.setTabToolTip(self.tabWidget.indexOf(
-            self.tab_1), _translate("MainWindow", "Select this tab to load data"))
-        self.infocurrent_box.setTitle(_translate(
-            "MainWindow", "Current information"))
-        self.aggcurrent_line.setToolTip(_translate(
-            "MainWindow", "This is the current information about the data"))
-        self.aggcurrent_line.setStatusTip(_translate(
-            "MainWindow", "This box shows how the data is currently aggregated and in what unit it is"))
-        self.aggcurrent_line.setText(_translate(
-            "MainWindow", "Minutely aggregation"))
-        self.agg_box.setStatusTip(_translate(
-            "MainWindow", "Click to aggregate for daily consumption"))
-        self.agg_box.setTitle(_translate(
-            "MainWindow", "Aggregate data"))
-        self.agg_min_btn.setToolTip(_translate(
-            "MainWindow", "Click to aggregate"))
-        self.agg_min_btn.setStatusTip(_translate(
-            "MainWindow", "Click to aggregate for minutely consumption"))
-        self.agg_min_btn.setText(
-            _translate("MainWindow", "Minutely"))
-        self.agg_hour_btn.setToolTip(_translate(
-            "MainWindow", "Click to aggregate"))
-        self.agg_hour_btn.setStatusTip(_translate(
-            "MainWindow", "Click to aggregate for hourly consumption"))
-        self.agg_hour_btn.setText(
-            _translate("MainWindow", "Hourly"))
-        self.agg_day_btn.setToolTip(_translate(
-            "MainWindow", "Click to aggregate"))
-        self.agg_day_btn.setText(
-            _translate("MainWindow", "Daily"))
-        self.agg_month_btn.setToolTip(
-            _translate("MainWindow", "Click to aggregate"))
-        self.agg_month_btn.setStatusTip(_translate(
-            "MainWindow", "Click to aggregate for monthly consumption"))
-        self.agg_month_btn.setText(
-            _translate("MainWindow", "Monthly"))
-        self.agg_hDay_btn.setToolTip(_translate(
-            "MainWindow", "Click to aggregate"))
-        self.agg_hDay_btn.setStatusTip(_translate(
-            "MainWindow", "Click to aggregate for the hourly average"))
-        self.agg_hDay_btn.setText(
-            _translate("MainWindow", "Hour-of-day"))
-        self.cmd_box.setTitle(
-            _translate("MainWindow", "Commands"))
-        self.stat_btn.setToolTip(_translate(
-            "MainWindow", "Click to hide/show statistics"))
-        self.stat_btn.setStatusTip(_translate(
-            "MainWindow", "Click to hide/show statistics based on currently aggregated data"))
-        self.stat_btn.setText(_translate(
-            "MainWindow", "Show statistics"))
-        self.plot_btn.setToolTip(_translate(
-            "MainWindow", "Click to show/hide data"))
-        self.plot_btn.setStatusTip(_translate(
-            "MainWindow", "Click to show/hide data in plots"))
-        self.plot_btn.setText(_translate(
-            "MainWindow", "Show plots"))
-        self.showdata_btn.setToolTip(_translate(
-            "MainWindow", "Click to show data"))
-        self.showdata_btn.setStatusTip(
-            _translate("MainWindow", "Click to show data"))
-        self.showdata_btn.setText(
-            _translate("MainWindow", "Print data"))
-        self.plotsMenu.setItemText(
-            0, _translate("MainWindow", "Each zone"))
-        self.plotsMenu.setItemText(
-            1, _translate("MainWindow", "All zones"))
-        self.display_box.setTitle(
-            _translate("MainWindow", "Display window"))
-        self.display_window.setToolTip(_translate(
-            "MainWindow", "This window will display any messages given"))
-        self.display_window.setStatusTip(_translate(
-            "MainWindow", "This window will display any messages given"))
-        self.display_window.setPlaceholderText(
-            _translate("MainWindow", "No messages to display"))
-        self.plotsMenu.setToolTip(_translate(
-            "MainWindow", "This dropdown menu defines the data which is to be plotted"))
-        self.plotsMenu.setStatusTip(_translate(
-            "MainWindow", "This dropdown menu defines the data which is to be plotted"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2),
-                                  _translate("MainWindow", "Analysis"))
-        self.tabWidget.setTabToolTip(self.tabWidget.indexOf(self.tab_2), _translate(
-            "MainWindow", "Select this tab to analyze data"))
+            self.tab_1), "Select this tab to load data")
+        self.infocurrent_box.setTitle("Current information")
+        self.aggcurrent_line.setToolTip(
+            "This is the current information about the data")
+        self.aggcurrent_line.setStatusTip(
+            "This box shows how the data is currently aggregated and in what unit it is")
+        self.aggcurrent_line.setText("Minutely aggregation")
+        self.agg_box.setStatusTip("Click to aggregate for daily consumption")
+        self.agg_box.setTitle("Aggregate data")
+        self.agg_min_btn.setToolTip("Click to aggregate")
+        self.agg_min_btn.setStatusTip(
+            "Click to aggregate for minutely consumption")
+        self.agg_min_btn.setText("Minutely")
+        self.agg_hour_btn.setToolTip("Click to aggregate")
+        self.agg_hour_btn.setStatusTip(
+            "Click to aggregate for hourly consumption")
+        self.agg_hour_btn.setText("Hourly")
+        self.agg_day_btn.setToolTip("Click to aggregate")
+        self.agg_day_btn.setText("Daily")
+        self.agg_month_btn.setToolTip("Click to aggregate")
+        self.agg_month_btn.setStatusTip(
+            "Click to aggregate for monthly consumption")
+        self.agg_month_btn.setText("Monthly")
+        self.agg_hDay_btn.setToolTip("Click to aggregate")
+        self.agg_hDay_btn.setStatusTip(
+            "Click to aggregate for the hourly average")
+        self.agg_hDay_btn.setText("Hour-of-day")
+        self.cmd_box.setTitle("Commands")
+        self.stat_btn.setToolTip("Click to hide/show statistics")
+        self.stat_btn.setStatusTip(
+            "Click to hide/show statistics based on currently aggregated data")
+        self.stat_btn.setText("Show statistics")
+        self.plot_btn.setToolTip("Click to show/hide data")
+        self.plot_btn.setStatusTip("Click to show/hide data in plot")
+        self.plot_btn.setText("Show plot")
+        self.showdata_btn.setToolTip("Click to show data")
+        self.showdata_btn.setStatusTip("Click to show data")
+        self.showdata_btn.setText("Print data")
+        self.plotMenu.setItemText(0, "Each zone")
+        self.plotMenu.setItemText(1, "All zones")
+        self.display_box.setTitle("Display window")
+        self.display_window.setToolTip(
+            "This window will display any messages given")
+        self.display_window.setStatusTip(
+            "This window will display any messages given")
+        self.display_window.setPlaceholderText("No messages to display")
+        self.plotMenu.setToolTip(
+            "This dropdown menu defines the data which is to be plotted")
+        self.plotMenu.setStatusTip(
+            "This dropdown menu defines the data which is to be plotted")
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.tab_2), "Analysis")
+        self.tabWidget.setTabToolTip(self.tabWidget.indexOf(
+            self.tab_2), "Select this tab to analyze data")
+        self.plot_focus_btn.setText("Focus plot")
+        self.plot_focus_btn.setToolTip("Focus plot")
+        self.plot_focus_btn.setStatusTip("Click to focus plot")
 
 
 # If script is run as main, then initialize the app
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
-    MainWindow = myWindow()
+    MainWindow = QtWidgets.QMainWindow()
     ui = App()
     MainWindow.show()
     sys.exit(app.exec_())
