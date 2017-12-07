@@ -26,14 +26,30 @@ from functions.print_statistics import print_statistics
 # Import plots and make them look pretty
 import matplotlib.pyplot as plt
 import matplotlib
+import matplotlib.dates as mdates
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 matplotlib.style.use('ggplot')  # Set plotting layout
+matplotlib.use('Qt5Agg')
+
+
+class myWindow(QtWidgets.QMainWindow):
+    """
+    Overrides the resizeEvent method from QMainWindow and emits a pyqtSignal
+    when the MainWindow is resized
+    """
+    resized = QtCore.pyqtSignal()
+
+    def __init__(self, parent=None):
+        super(myWindow, self).__init__(parent=parent)
+
+    def resizeEvent(self, event):
+        self.resized.emit()
 
 
 class DragAndDrop(QtWidgets.QPlainTextEdit):
     """
-    A class that sets a QPlainTextEdit widget to be able to recieve drops
+    Sets a QPlainTextEdit widget to be able to recieve drops
     while at the same time disabling user interactions when needed.
     It extends QtWidgets.QPlainTextEdit and emits a custom signal when
     a file is dropped. Moreover the class also needs a parent when initialized
@@ -43,8 +59,7 @@ class DragAndDrop(QtWidgets.QPlainTextEdit):
     # Initiation, make widget acceptable to drops and non-editable
     # note DragAndDrop requires a parent
     def __init__(self, parent):
-        super(DragAndDrop, self).__init__(
-            parent)  # Avoid inheritance issues
+        super(DragAndDrop, self).__init__(parent)  # Avoid inheritance issues
         self.setAcceptDrops(True)
         self.setReadOnly(True)
 
@@ -52,11 +67,11 @@ class DragAndDrop(QtWidgets.QPlainTextEdit):
     def dragEnterEvent(self, e):
         if e.mimeData().hasUrls():  # Check for url of file
             e.accept()  # Accept file
-            self.setReadOnly(False)  # Enable read
+            self.setReadOnly(False)
         else:
             e.ignore()  # Don't accept file
 
-    # On drop event, get url and then disable write
+    # On drop event, get url, disable write then emit drop signal
     def dropEvent(self, e):
         # Get file location and save as floc
         self.floc = e.mimeData().text()
@@ -105,6 +120,7 @@ class App():
         self.aggcurrent_line.textChanged.connect(self.dataPlot)
         self.aggcurrent_line.textChanged.connect(self.printStat)
         self.plotsMenu.currentIndexChanged.connect(self.dataPlot)
+        MainWindow.resized.connect(self.plotResize)
 
 # On change of dropdown menu
     def menuChange(self):
@@ -140,10 +156,18 @@ class App():
             self.print_("Hiding plots")  # Display msg
         # Show plots
         else:
-            self.plotFrame.show()  # Show widget
+            self.plotFrame.show()
             self.plot_btn.setText("Hide plots")
             self.print_("Showing plots")
             self.dataPlot()
+
+# Adjust plots to resize
+    def plotResize(self):
+        """
+        Resizes plots (if open) to current window size
+        """
+        if self.canvas.isVisible():
+            plt.tight_layout()
 
 # Plot data
     def dataPlot(self):
@@ -161,38 +185,40 @@ class App():
 
         # Warn user about large loading time
         if len(self.data) > 300000:
+            # Warn user about large plotting data that can make the program lag
             choice = self.showQuestion("Attention! Large amount of data",
-                                       "You are about to generate plots from a large amount of data, which may take above 20 seconds\nAre you sure you want to continue?")
+                                       "You are about to generate plots from a large amount of data which will make the program stutter on some computers\nAre you sure you want to continue?")
             if choice == 0:
                 self.plot_btn.click()  # Hide plots by simulating a click
-                self.figure.clear()  # Clear current plot
                 return
 
         self.print_("Data changed, generating new plots")  # Msg plot new data
 
-        # Define variable to check if data has already been
-        # generated
+        # Define variable to check if data has already been generated
         self.periodCheck = self.period
 
         # Get current plotting option from plotsMenu
         pltChoice = self.plotsMenu.currentText()
+
         # Define the plotting data type
         if pltChoice == "All zones":
             pltData = self.data.sum(axis=1).copy()
+            legends = ["Sum of all zones"]  # Define legend from string
         elif pltChoice == "Each zone":
             pltData = self.data.copy()
+            legends = pltData.columns  # Get legends as columns
 
         # ===========================
         # Defining data to plot
         # ===========================
         # Define x-axis
-        if self.aggId != 5:
-            # Create a date-type series
+        if self.aggId != 5:  # If aggregation is not hour of the day
+            xLabel = "Date"
+            # Create a datetime series
             xAxis = pd.to_datetime(self.tvec)
-            xLabel = "Date"  # Set label
         else:
-            xAxis = self.tvec
             xLabel = "Hour of the day"
+            xAxis = pd.to_datetime(self.tvec, format='%H')
 
         # Check for dataFrame or Series type and rename index
         if isinstance(pltData, pd.DataFrame):
@@ -209,18 +235,51 @@ class App():
 
         # Plot either line or bar plot depending on length of data
         if len(pltData) < 25:
-            pltData.plot(kind='bar', ax=ax, rot=20,
-                         title="Consumption per {}".format(self.period))
+            # Plot a bar graph. xAxis cannot be implemented in the same way
+            # as a line graph, so worked around it by plotting through pandas
+            # and assigning index in a separate command
+            pltData.plot(kind='bar', ax=ax, rot=0,
+                         use_index=False)  # Pandas plot
+            # Seperate xTicks for hour of the day and month
+            if xLabel == "Date":  # Month
+                plt.xticks(range(len(pltData.index)),
+                           pltData.index.strftime("%b %Y"))  # Assign index
+            else:  # Hour of the day
+                plt.xticks(range(len(pltData.index)),
+                           pltData.index.strftime("%H:00"))  # Assign index
         else:
-            pltData.plot(ax=ax,
-                         title="Consumption per {}".format(self.period))
+            # Plot a line graph
+            plt.plot(pltData.index, pltData.values)
 
-        # Add additional options to plot
-        plt.xlabel(xLabel)  # Add x-label
-        plt.ylabel(self.unit)  # Add y-label
-        # Define plot parameters
-        plt.subplots_adjust(top=0.9, bottom=0.255, left=0.1, right=0.955,
-                            hspace=0.2, wspace=0.2)  # adjust size
+            # Define datetime locations and formatting. Using AutoDateXXXXX to make
+            # it adaptable to zooming
+            locator = mdates.AutoDateLocator()
+            formatter = mdates.AutoDateFormatter(locator)
+
+            # Create custom datetime formats from the self.scaled dictionary inside
+            # the AutoDateFormatter class
+            formatter.scaled[365] = '%b\n%Y'  # Years
+            formatter.scaled[30] = '%b\n%Y'  # Months
+            formatter.scaled[1.0] = '%d. %b\n%Y'  # Days
+            formatter.scaled[1. / 24.] = '%H:00\n%d. %b %y'  # Hours
+            formatter.scaled[1. / (60. * 24.)] = '%H:%M\n%d. %b %y'  # Minutes
+            formatter.scaled[1. / (60. * 60. * 24.)
+                             ] = '%H:%M:%S\n%d. %b %y'  # Sec
+
+            # Assign the locator and formatter to the xAxis
+            ax.xaxis.set_minor_locator(locator)
+            ax.xaxis.set_major_formatter(formatter)
+
+        self.figure.autofmt_xdate()  # Set proper rotations for xAxis
+        # Add additional options to plot (self explanatory)
+        plt.legend(legends, loc=0)
+        ax.grid(True)
+        plt.title("Electricity consumption per {}".format(self.period))
+        plt.xlabel(xLabel)
+        plt.ylabel(self.unit)
+
+        # Set subplot size
+        plt.tight_layout()
         self.canvas.draw()  # Draw to canvas
 
 # Show/hide stats
@@ -251,10 +310,12 @@ class App():
             return
         # Get statistics dataframe
         df_stat = print_statistics(self.tvec, self.data)
+
+        # Set statistics widget to same size of df_stat
         self.statistics.setColumnCount(
-            len(df_stat.columns))  # Set columns
+            len(df_stat.columns))
         self.statistics.setRowCount(
-            len(df_stat.index))  # Set rows
+            len(df_stat.index))
 
         # Assign values to rows and collumns in table
         for i in range(len(df_stat.index)):
@@ -262,15 +323,16 @@ class App():
                 self.statistics.setItem(i, j, QtWidgets.QTableWidgetItem(
                     str(round(df_stat.iloc[i, j], 3))))  # Round to 3 digits
 
-        # Set layout
+        # Set layout for horizontal and vertical headers
         self.statistics.setHorizontalHeaderLabels(
-            ["Min", "25%", "50%", "75%", "Max"])  # Horizontal headers
+            ["Min", "25%", "50%", "75%", "Max"])
         self.statistics.setVerticalHeaderLabels(
-            ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "All"])  # Vertical headers
+            ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "All"])
+        # Dynamically adjust widget size
         self.statistics.setSizeAdjustPolicy(
-            QtWidgets.QAbstractScrollArea.AdjustToContents)  # Adjust widget size
+            QtWidgets.QAbstractScrollArea.AdjustToContents)
         # Set column width
-        for column in range(5):
+        for column in range(len(df_stat.columns)):
             self.statistics.setColumnWidth(column, 75)
 
 # Print function
@@ -284,8 +346,9 @@ class App():
         OUTPUT:
             text printed onto display_window
         """
+        length = len(self.text)
         self.display_window.insertPlainText(
-            "\n--------------\n{}\n--------------".format(text))
+            "\n{}\n{}\n{}".format(length, text, length))
         # Stay at bottom of window when printing so it only shows the
         # newest printed data
         self.display_window.ensureCursorVisible()
@@ -494,13 +557,22 @@ class App():
         Displays a help pdf file
         """
         path = os.path.dirname(os.path.abspath(
-            __file__)) + "/resources/userguide.pdf"
+            __file__)) + "/resources/userguide.pdf"  # Define path to pdf
         webbrowser.open_new(
-            r'file:///' + path)
+            r'file:///' + path)  # Open path
 
-        # The UI has been mainly generated by QtDesigner. However widgets such as:
-        # plots, menubars and the dropdown menu for plotting data have been added
-        # manually
+    def fs_app(self):
+        """
+        Toggles fullscreen
+        """
+        if MainWindow.windowState() & QtCore.Qt.WindowFullScreen:
+            MainWindow.showNormal()
+        else:
+            MainWindow.showFullScreen()
+
+    # The UI has been mainly generated by QtDesigner. However widgets such as:
+    # plots, menubars and the dropdown menu for plotting data have been added
+    # manually
     def setupUi(self, MainWindow):
         """
         Initiates the GUI
@@ -513,6 +585,7 @@ class App():
         # Initial window
         MainWindow.setObjectName("MainWindow")
         MainWindow.setWindowIcon(QtGui.QIcon('resources/Icon.ico'))
+        MainWindow.setMinimumSize(650, 500)
         MainWindow.resize(734, 525)
         # Center MainWindow
         geometry = MainWindow.frameGeometry()  # Geometry of qBox
@@ -710,7 +783,7 @@ class App():
         # Display box
         self.display_box = QtWidgets.QGroupBox(self.tab_2)
         self.display_box.setObjectName("display_box")
-        self.display_box.setMinimumSize(400, 200)
+        self.display_box.setMinimumSize(400, 0)
         self.horizontalLayout_5 = QtWidgets.QHBoxLayout(
             self.display_box)
         self.horizontalLayout_5.setObjectName(
@@ -719,7 +792,7 @@ class App():
         self.figure = plt.figure()  # a figure to plot on
         self.canvas = FigureCanvas(self.figure)  # canvas to display plots on
         self.toolbar = NavigationToolbar(self.canvas, None)  # toolbar
-        self.canvas.setMinimumSize(200, 200)
+        self.canvas.setMinimumSize(300, 200)
         self.plotFrame = QtWidgets.QFrame(self.display_box)  # Create frame
         self.horizontalLayout_5.addWidget(self.plotFrame)  # Add to layout
         self.verticalLayout_5 = QtWidgets.QVBoxLayout(
@@ -762,6 +835,13 @@ class App():
         helpAction.setShortcut("F1")
         options.addAction(helpAction)  # Add to menu
 
+        # Set parameter for fsAction (full screen action)
+        fsAction = QtWidgets.QAction('Fullscreen', MainWindow)
+        fsAction.setStatusTip("Toggle fullscreen")
+        fsAction.triggered.connect(self.fs_app)
+        fsAction.setShortcut("F11")
+        options.addAction(fsAction)  # Add to menu
+
         # Mac OS has built-in quit menu (Cmd+Q)
         # Set parameters for exitAction
         exitAction = QtWidgets.QAction('Exit', MainWindow)
@@ -769,6 +849,13 @@ class App():
         exitAction.triggered.connect(self.close_app)
         exitAction.setShortcut("Ctrl+Q")
         options.addAction(exitAction)  # Add to menu
+
+        # Set parameter for fsAction (full screen action)
+        dankAction = QtWidgets.QAction('Play dank music', MainWindow)
+        dankAction.setStatusTip("Toggle some dank music")
+        dankAction.triggered.connect(self.dank_app)
+        dankAction.setShortcut("F2")
+        options.addAction(dankAction)  # Add to menu
 
         self.menubar.setGeometry(
             QtCore.QRect(0, 0, 734, 21))
@@ -783,31 +870,39 @@ class App():
         self.retranslateUi(MainWindow)
         # Set tab order
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
-        MainWindow.setTabOrder(
-            self.tabWidget, self.error_dropmenu)
-        MainWindow.setTabOrder(
-            self.error_dropmenu, self.loadfile_input)
-        MainWindow.setTabOrder(
-            self.loadfile_input, self.loadfile_btn)
-        MainWindow.setTabOrder(
-            self.loadfile_btn, self.drop_input)
-        MainWindow.setTabOrder(
-            self.drop_input, self.aggcurrent_line)
-        MainWindow.setTabOrder(
-            self.aggcurrent_line, self.agg_min_btn)
-        MainWindow.setTabOrder(
-            self.agg_min_btn, self.agg_hour_btn)
-        MainWindow.setTabOrder(
-            self.agg_hour_btn, self.agg_day_btn)
-        MainWindow.setTabOrder(
-            self.agg_day_btn, self.agg_month_btn)
-        MainWindow.setTabOrder(
-            self.agg_month_btn, self.agg_hDay_btn)
-        MainWindow.setTabOrder(
-            self.agg_hDay_btn, self.stat_btn)
-        MainWindow.setTabOrder(self.stat_btn, self.plot_btn)
-        MainWindow.setTabOrder(
-            self.plot_btn, self.display_window)
+        MainWindow.setTabOrder(self.tabWidget, self.error_dropmenu)
+        MainWindow.setTabOrder(self.error_dropmenu, self.loadfile_input)
+        MainWindow.setTabOrder(self.loadfile_input, self.loadfile_btn)
+        MainWindow.setTabOrder(self.loadfile_btn, self.drop_input)
+        MainWindow.setTabOrder(self.drop_input, self.aggcurrent_line)
+        MainWindow.setTabOrder(self.aggcurrent_line, self.agg_min_btn)
+        MainWindow.setTabOrder(self.agg_min_btn, self.agg_hour_btn)
+        MainWindow.setTabOrder(self.agg_hour_btn, self.agg_day_btn)
+        MainWindow.setTabOrder(self.agg_day_btn, self.agg_month_btn)
+        MainWindow.setTabOrder(self.agg_month_btn, self.agg_hDay_btn)
+        MainWindow.setTabOrder(self.agg_hDay_btn, self.plotsMenu)
+        MainWindow.setTabOrder(self.plotsMenu, self.plot_btn)
+        MainWindow.setTabOrder(self.plot_btn, self.stat_btn)
+        MainWindow.setTabOrder(self.stat_btn, self.showdata_btn)
+        MainWindow.setTabOrder(self.showdata_btn, self.display_window)
+
+    # So hidden, much wow
+    def dank_app(self):
+        """
+        Toggle some dank music
+        """
+        from pygame import mixer
+        import random
+        mixer.init()  # Initialize
+        music = ["Allstar", "Big Shaq", "Darude", "Hell Naw", "HEYAYA",
+                 "Jimmy Neutron", "PPAP", "Seinfeld Theme", "Tunnel Vision",
+                 "We Are Number One"]
+        if mixer.music.get_busy():  # If playing, then stop
+            mixer.music.stop()
+        else:  # Else load some dank music, randomly o.O
+            mixer.music.load(
+                'resources/dank/{}.mp3'.format(random.choice(music)))
+            mixer.music.play()
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
@@ -937,7 +1032,7 @@ class App():
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
-    MainWindow = QtWidgets.QMainWindow()
+    MainWindow = myWindow()
     ui = App()
     MainWindow.show()
     sys.exit(app.exec_())
