@@ -2,7 +2,7 @@
 This script runs a GUI where the user can load data by drag and drop or
 by direct filename, and analyze the data, including plotting.
 
-It is adviced to open it in maximized mode for best compatibility
+It is adviced to read the Readme first or press F1 in the application
 
 @Author: Simon Moe Sørensen (s174420)
 
@@ -18,10 +18,12 @@ import webbrowser
 import os
 import sys
 
-# Importing functions and exceptions
-from functions.load_measurements import load_measurements, FileExtensionError
-from functions.aggregate_measurements import aggregate_measurements
-from functions.print_statistics import print_statistics
+# Importing functions and classes
+from src.load_measurements import load_measurements, FileExtensionError
+from src.aggregate_measurements import aggregate_measurements
+from src.print_statistics import print_statistics
+from src.myWindow import myWindow
+from src.dragAndDrop import DragAndDrop
 
 # Import plots and make them look pretty
 import matplotlib.pyplot as plt
@@ -31,52 +33,6 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 matplotlib.style.use('ggplot')  # Set plotting layout
 matplotlib.use('Qt5Agg')
-
-
-class myWindow(QtWidgets.QMainWindow):
-    """
-    Overrides the resizeEvent method from QMainWindow and emits a pyqtSignal
-    when the MainWindow is resized
-    """
-    resized = QtCore.pyqtSignal()
-
-    def __init__(self, parent=None):
-        super(myWindow, self).__init__(parent=parent)
-
-    def resizeEvent(self, event):
-        self.resized.emit()
-
-
-class DragAndDrop(QtWidgets.QPlainTextEdit):
-    """
-    Sets a QPlainTextEdit widget to be able to recieve drops
-    while at the same time disabling user interactions when needed.
-    It extends QtWidgets.QPlainTextEdit and emits a custom signal when
-    a file is dropped. Moreover the class also needs a parent when initialized
-    """
-    fileDrop = QtCore.pyqtSignal()  # Defining custom signal
-
-    # Initiation, make widget acceptable to drops and non-editable
-    # note DragAndDrop requires a parent
-    def __init__(self, parent):
-        super(DragAndDrop, self).__init__(parent)  # Avoid inheritance issues
-        self.setAcceptDrops(True)
-        self.setReadOnly(True)
-
-    # On file-entering event, check if valid file, if yes, set write to true
-    def dragEnterEvent(self, e):
-        if e.mimeData().hasUrls():  # Check for url of file
-            e.accept()  # Accept file
-            self.setReadOnly(False)
-        else:
-            e.ignore()  # Don't accept file
-
-    # On drop event, get url, disable write then emit drop signal
-    def dropEvent(self, e):
-        # Get file location and save as floc
-        self.floc = e.mimeData().text()
-        self.setReadOnly(True)  # Disable read
-        self.fileDrop.emit()  # Emit signal on dropEvent
 
 
 class App():
@@ -346,9 +302,8 @@ class App():
         OUTPUT:
             text printed onto display_window
         """
-        length = len(self.text)
         self.display_window.insertPlainText(
-            "\n{}\n{}\n{}".format(length, text, length))
+            "\n--------------\n{}\n--------------".format(text))
         # Stay at bottom of window when printing so it only shows the
         # newest printed data
         self.display_window.ensureCursorVisible()
@@ -907,9 +862,9 @@ class App():
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate(
-            "MainWindow", "Analysis of household electricity consumption"))
+            "MainWindow", "Analysis of Household Electricity Consumption"))
         self.header.setText(_translate(
-            "MainWindow", "Welcome to the Analysis of household electricity consumption program "))
+            "MainWindow", "Welcome to the Analysis of Household Electricity Consumption Program "))
         self.error_box.setTitle(_translate(
             "MainWindow", "Errorhandling"))
         self.error_dropmenu.setToolTip(_translate(
@@ -1030,6 +985,7 @@ class App():
             "MainWindow", "Select this tab to analyze data"))
 
 
+# If script is run as main, then initialize the app
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = myWindow()
