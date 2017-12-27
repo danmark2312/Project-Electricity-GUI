@@ -122,27 +122,42 @@ class App():
         """
         # If user wants to focus plot
         if self.plot_focus_btn.text() == "Focus plot":
+            self.plot_focus_btn.setText("Unfocus plot")
             self.infocurrent_box.hide()
             self.agg_box.hide()
             self.cmd_box.hide()
             self.display_window.hide()
             self.line_2.hide()
-            self.plot_focus_btn.setText("Unfocus plot")
 
         else:
+            self.plot_focus_btn.setText("Focus plot")
             self.infocurrent_box.show()
             self.agg_box.show()
             self.cmd_box.show()
             self.display_window.show()
             self.line_2.show()
-            self.plot_focus_btn.setText("Focus plot")
 
 # Adjust plot to new size
     def plotResize(self):
         """
-        Resizes plot (if open) to current window size
+        Resizes plot to current canvas size
+        Known bugs:
+            - On a Macbook (12" display) the plt.tight_layout() method makes the
+            program crash, worked around by letting the user manually adjust
+            the plot size instead.
+
+            - On a Macbook (12" display) the fontsize is way too large. Adjusting
+            the code for this very particular case would make it unneccesary
+            large. It could be solved by
+            defining a 2 plot functions in another .py script for windows and macs
         """
-        if self.canvas.isVisible() and (int(self.canvas.width()) > 400):
+        # Check for mac OS and small resolution and stop resize if true
+        if sys.platform == "darwin" and self.screen_bool:
+            return
+
+        # Check if canvas is visible and within reasonable size
+        width = int(self.canvas.width())
+        if self.canvas.isVisible() and (width > 400):
             plt.tight_layout()
 
 # Plot data
@@ -214,6 +229,7 @@ class App():
             # and assigning index in a separate command
             pltData.plot(kind='bar', ax=ax,
                          use_index=False)  # Pandas plot
+
             # Seperate xTicks for hour of the day and month
             if xLabel == "Date":  # Month
                 plt.xticks(range(len(pltData.index)),
@@ -252,7 +268,7 @@ class App():
         ax.set_ylabel(self.unit)
 
         # Set subplot size if plot is displayable. If it is below
-        # 500 px width, then it is impossible to see anything anyways
+        # 400 px width, then it is impossible to see anything anyways
         if int(self.canvas.width()) > 400:
             plt.tight_layout()
 
@@ -437,11 +453,19 @@ class App():
             if self.plot_focus_btn.text() == "Unfocus plot":
                 self.plot_focus_btn.click()
 
+            # Check for a small screen
             screen_res = QtWidgets.QDesktopWidget().availableGeometry()
+            self.screen_bool = int(screen_res.width()) < 1300 or int(
+                screen_res.height()) < 700
 
-            if int(screen_res.width()) < 1300 or int(screen_res.height()) < 700:
+            if self.screen_bool:
                 self.showWarning(
                     "You have a very small screen!\nProgram might crash when plotting. \nUsing fullscreen mode to minimize chances of a crash")
+                # If the user has a small resolution and is on a mac then
+                # inform the user about how to adjust plots
+                if sys.platform == "darwin":
+                    self.showInfo(
+                        "You must manually adjust the plot size.\nClick on the 5'th icon from the left and choose 'tight layout' when plotting")
                 MainWindow.showFullScreen()
 
         # Print message if any of given errors are raised
@@ -882,9 +906,9 @@ class App():
         from pygame import mixer
         import random
         mixer.init()  # Initialize
-        music = ["Allstar", "Big Shaq", "Darude", "Hell Naw", "HEYAYA",
-                 "Jimmy Neutron", "PPAP", "Seinfeld Theme", "Tunnel Vision",
-                 "We Are Number One", "To Be Continued"]
+        music = ["Allstar", "Big Shaq", "Darude", "HEYAYA", "PPAP",
+                 "Seinfeld Theme", "We Are Number One", "To Be Continued",
+                 "Shooting star"]
         if mixer.music.get_busy():  # If playing, then stop
             mixer.music.stop()
             self.statusbar.showMessage("Stopped music")
@@ -909,7 +933,8 @@ class App():
             2, "Drop (delete corrupted measurements)")
         self.loadfile_box.setTitle("Filename")
         self.loadfile_input.setToolTip("Please enter a filename")
-        self.loadfile_input.setStatusTip("Please enter a filename in this box")
+        self.loadfile_input.setStatusTip(
+            "Please enter a filename in this box")
         self.loadfile_input.setPlaceholderText(
             "Please enter the name of the datafile. Ex: 2008.csv")
         self.loadfile_btn.setToolTip("Click to load data")
